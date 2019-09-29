@@ -29,7 +29,7 @@ public class MainActivity extends AppCompatActivity {
     private ProgressBar progressBar;
     private EditText editText;
     RestAPI restAPI;
-
+    RestAPIforUser restAPIforUser;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,7 +41,7 @@ public class MainActivity extends AppCompatActivity {
         Button btnLoad = (Button) findViewById(R.id.btnLoad);
         Button btnLoadOnly = (Button) findViewById(R.id.btnLoadOnly);
         btnLoad.setOnClickListener((v) -> onClick());
-
+        btnLoadOnly.setOnClickListener((v) -> onClickOnly());
 
     }
     public void onClick() {
@@ -107,5 +107,73 @@ public class MainActivity extends AppCompatActivity {
 
         }
 
+    public void onClickOnly() {
+        mInfoTextView.setText("");
+        Retrofit retrofit = null;
+        try {
+            retrofit = new Retrofit.Builder()
+                    .baseUrl("https://api.github.com/")
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build();
+            restAPIforUser = retrofit.create(RestAPIforUser.class);
+        } catch (Exception io) {
+            mInfoTextView.setText("no retrofit: " + io.getMessage());
+            return;
+        }
+        // Подготовили вызов на сервер
+        Call<RetrofitModel> call = restAPIforUser.loadUsers(editText.getText().toString());
+
+        ConnectivityManager connectivityManager =
+                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo networkinfo = connectivityManager.getActiveNetworkInfo();
+        if (networkinfo != null && networkinfo.isConnected()) {
+            // Запускаем
+            try {
+                progressBar.setVisibility(View.VISIBLE);
+                downloadOnly(call);
+            } catch (IOException e) {
+                e.printStackTrace();
+                mInfoTextView.setText(e.getMessage());
+            }
+        } else {
+            Toast.makeText(this, "Подключите интернет", Toast.LENGTH_SHORT).show();
+        }
+
+
+    }
+
+    private void downloadOnly(Call<RetrofitModel> call) throws IOException {
+        call .enqueue(new Callback<RetrofitModel>() {
+            @Override
+            public void onResponse(@NonNull Call<RetrofitModel> call,
+                                   @NonNull Response<RetrofitModel> response) {
+
+
+                if (response.body() != null) {
+
+                    mInfoTextView.append("\nLogin = " + response.body().getLogin()+
+                            "\nId = " + response.body().getId()+
+                            "\nURI" + response.body().getAvatarUrl()+
+                            "\n-----------------");
+
+
+                }else {
+                    System.out.println("onResponse error: " + response.code());
+                    mInfoTextView.setText("onResponse error: " + response.code());
+                }
+                progressBar.setVisibility(View.GONE);
+
+
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<RetrofitModel> call,
+                                  @NonNull Throwable t) {
+                System.out.println("onFailure " + t);
+                mInfoTextView.setText("onFailure " + t.getMessage());
+                progressBar.setVisibility(View.GONE);
+            }
+        });
+    }
 
 }
